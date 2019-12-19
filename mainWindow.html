@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>SIP EXAMPLE</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <nav>
+    <div class="nav-wrapper">
+      <a class="brand-logo center">SIP</a>
+    </div>
+  </nav>
+  <ul></ul>
+  <div id="menu-buttons">
+    <button id="btn-call">CALL</button>
+  </div>
+  <video autoplay></video>
+  <audio id="player" autoplay></audio>
+  <script>
+    const electron = require('electron');
+    const { ipcRenderer } = electron;
+    const ul = document.querySelector('ul');
+
+    const buttons_wrapper = document.getElementById('menu-buttons')
+    const btn_call = document.getElementById('btn-call');
+    const sip = require('jssip');
+    const { desktopCapturer } = require('electron')
+    var nodeConsole = require('console');
+    var myConsole = new nodeConsole.Console(process.stdout, process.stderr);
+
+
+    ipcRenderer.on('item:add', function (e, name, any_data, winDestination) {
+      if (winDestination == "winadduser") {
+        ul.className = 'collection';
+        var li = document.createElement('li')
+        li.className = 'collection-item';
+        const itemText_name = document.createTextNode(name);
+        li.appendChild(itemText_name);
+        ul.appendChild(li);
+        var li = document.createElement('li')
+        li.className = 'collection-item';
+        const itemText_pass = document.createTextNode(pass);
+        li.appendChild(itemText_pass);
+        ul.appendChild(li);
+      }
+    });
+
+    ipcRenderer.on('item:clear', function () {
+      ul.className = '';
+      ul.innerHTML = '';
+    });
+
+    // JaSIP Events
+    btn_call.addEventListener('click', call__)
+
+    function call__(e) {
+      //_______________________________________________________________________________________
+      // SIP LIBRARY --------------------------------------------------------------------------
+
+      var currentSession = null;
+        var localStream = null;
+        var remoteStream = null;
+        function captureLocalMedia() {
+            myConsole.info("Requesting local video & audio");
+            navigator.mediaDevices
+                .getUserMedia({
+                    audio: true,
+                    video: true
+                })
+                .then(function(stream) {
+                    localStream = stream;
+                    localVideo.srcObject = stream;
+                })
+                .catch(function(err) {
+                    myConsole.log("getUserMedia Error:", err);
+                });
+        }
+        captureLocalMedia()
+
+      desktopCapturer.getSources({ types: ['window', 'screen'] }, (error, sources) => {
+        if (error) throw error
+        for (let i = 0; i < sources.length; ++i) {
+          if (sources[i].name === 'mainWindow.html') {
+            navigator.webkitGetUserMedia({
+              audio: {
+                mandatory: {
+                  chromeMediaSource: 'desktop',
+                  chromeMediaSourceId: sources[i].id,
+                }
+              },
+              video: false
+            }, handleStream, handleError)
+            return
+          }
+        }
+      })
+
+      function handleStream(stream) {
+        myConsole.log("AUDIO")
+        document.querySelector('video').src = URL.createObjectURL(stream)
+        
+      }
+
+      function handleError(e) {
+        myConsole.log("Failed audio handler")
+      }
+
+     
+      var socket = new sip.WebSocketInterface('wss://46.105.182.20:5060');
+
+      var configuration = {
+        sockets: [socket],
+        uri: 'sip:JSSIP@46.105.182.20:5060',
+        password: 'wAXNEBaXDJ'
+      };
+
+      var ua = new sip.UA(configuration);
+
+      ua.start();
+
+      var eventHandlers = {
+        'progress': function (e) {
+          myConsole.log('call is in progress');
+        },
+        'failed': function (e) {
+          myConsole.log('call failed with cause: ' + e.data.cause);
+        },
+        'ended': function (e) {
+          myConsole.log('call ended with cause: ' + e.data.cause);
+        },
+        'confirmed': function (e) {
+          myConsole.log('call confirmed');
+        }
+      };
+
+      var options = {
+        'eventHandlers': eventHandlers,
+        'mediaConstraints': { 'audio': true, 'video': false }
+      };
+
+      // (22) 213 95 54
+      var session = ua.call('sip:48795747847', options);
+     // myConsole.log(session)
+
+     ua.on('disconnected', function(e){ 
+      //  myConsole.log(e)
+      });
+
+      sip.debug.enable('JsSIP:*');
+
+      // *** END SIP LIBRARY ___________________________________________________________________________________
+      //________________________________________________________________________________________________________
+
+      e.preventDefault();
+      ipcRenderer.send('sip:call', null);
+
+      // ipcRenderer.on('sip:call', function () {
+      // })
+    }
+
+  </script>
+</body>
+
+</html>
